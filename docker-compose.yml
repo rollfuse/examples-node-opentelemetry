@@ -1,0 +1,44 @@
+services:
+  mock-rollfuse-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.mock-api
+    ports:
+      - "8090:8090"
+
+  checkout:
+    build:
+      context: .
+      dockerfile: Dockerfile.checkout
+    environment:
+      ROLLFUSE_API_BASE_URL: http://mock-rollfuse-api:8090
+      ROLLFUSE_SERVICE_CREDENTIAL: demo-credential
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
+      OTEL_SERVICE_NAME: checkout
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mock-rollfuse-api
+      - jaeger
+
+  loadgen:
+    image: curlimages/curl:8.11.0
+    depends_on:
+      - checkout
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        sleep 3
+        while true; do
+          curl -s -o /dev/null "http://checkout:8080/checkout?user=user_$$((RANDOM % 500))"
+          sleep 0.5
+        done
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.63.0
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686" # UI
+      - "4318:4318" # OTLP HTTP

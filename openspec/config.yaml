@@ -1,0 +1,22 @@
+schema: spec-driven
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+context: |
+  Tech stack: Node.js (plain node:http, no framework), OpenTelemetry
+  (@opentelemetry/sdk-node + auto-instrumentations-node), Docker Compose
+  (Jaeger for trace storage + UI), no build step (plain ESM JavaScript,
+  not TypeScript).
+
+  Domain: a runnable example repository under the rollfuse GitHub
+  organization — not the rollfuse platform itself. It demonstrates
+  @rollfuse/sdk-js (from github.com/rollfuse/js-sdk) instrumented with
+  OpenTelemetry via a small synthetic checkout service (src/server.js)
+  plus a self-contained mock of the rollfuse platform API
+  (mock-rollfuse-api/server.js), so the whole thing runs with
+  `docker compose up` and no rollfuse account.
+
+  This repo has no behavioral contract of its own worth a formal
+  openspec/specs/ capability — it's a demo, kept intentionally small.
+  OpenSpec here is for planning nontrivial changes to the demo itself,
+  not for specifying product behavior.

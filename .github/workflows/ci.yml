@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  syntax-check:
+    name: install, syntax check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+      - run: node --check src/server.js
+      - run: node --check src/tracing.js
+      - run: node --check mock-rollfuse-api/server.js
+      - run: npm audit --audit-level=high
+
+  compose-smoke-test:
+    name: docker compose up smoke test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: docker compose up
+        run: docker compose up --build -d mock-rollfuse-api checkout jaeger
+
+      - name: wait for checkout to be ready
+        run: |
+          for i in $(seq 1 30); do
+            curl -fsS http://localhost:8080/healthz && exit 0
+            sleep 1
+          done
+          echo "checkout never became ready" >&2
+          exit 1
+
+      - name: exercise /checkout and check the response shape
+        run: |
+          curl -fsS "http://localhost:8080/checkout?user=ci-smoke-test" | tee /dev/stderr | grep -q '"variation_key"'
+
+      - name: check the trace reached jaeger
+        run: |
+          for i in $(seq 1 20); do
+            traces="$(curl -fsS 'http://localhost:16686/api/traces?service=checkout&limit=1' | grep -o '"traceID"' || true)"
+            [ -n "$traces" ] && exit 0
+            sleep 2
+          done
+          echo "jaeger never reported a trace for the checkout service" >&2
+          exit 1
+
+      - name: docker compose logs (always, for debugging)
+        if: always()
+        run: docker compose logs
