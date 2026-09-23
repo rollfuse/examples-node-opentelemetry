@@ -1,4 +1,4 @@
-FROM node:22-alpine
+FROM node:25-alpine
 WORKDIR /app
 COPY mock-rollfuse-api/server.js ./server.js
 COPY config/checkout-config.json /config/checkout-config.json
